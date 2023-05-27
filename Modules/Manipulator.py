@@ -6,44 +6,78 @@ class Manipulator:
     def __init__(self):
         return
     
-    def remove_bg(image, save = "", serChroma = False):
+    def get_channel(self,image):
+        if len(image.shape) > 2:
+            return image.shape[2]
+    
+    def channel_3to4(self,image):
+        if len(image.shape) > 2 and image.shape[2] == 3:
+            b_channel, g_channel, r_channel = cv2.split(image)
+            alpha_channel = np.ones(b_channel.shape, dtype=b_channel.dtype)
+            image = cv2.merge((b_channel, g_channel, r_channel, alpha_channel))
+            return image
+    
+    def channel_4to3(self,image):
+        if len(image.shape) > 2 and image.shape[2] == 4:
+            image = image[:, :, :3]
+            return image
+    
+    def combine4(self, bg , img, y_offset, x_offset, a_offset = 20):
+        image = bg
+        h, w = img.shape[:2]
+        for i in range(h):
+            for j in range(w):
+                if img[i][j][3] > a_offset:
+                    image[y_offset+i][x_offset+j] = img[i][j]
+        return image
+        
+    
+    def remove_bg(self, image, savepath = "", setChroma = False):
         img = remove(image)
-        if save != "":
-            cv2.imwrite(save, img)
+
+        if setChroma:
+            bg = cv2.imread("Images/ChromaKey.png", cv2.IMREAD_COLOR) 
+            bg = self.channel_3to4(bg)
+            bg = self.combine4(bg, img, 0, 0)
+            h, w = img.shape[:2]
+            img = bg[:h,:w]
+            img = self.channel_4to3(img)
+            
+
+        if savepath != "":
+            cv2.imwrite(savepath, img)
+
         return img
     
+    def combine_chroma(self, chromaimg, destimg, y_offset, x_offset):
+        hsv = cv2.cvtColor(chromaimg, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, (50, 150, 0), (70, 255, 255))
+        mask_inv = cv2.bitwise_not(mask)
+        h, w = chromaimg.shape[:2]
+        roi = back[y_offset:y_offset+h, x_offset : x_offset + w]
+        fg = cv2.bitwise_and(lenna_with_chroma,lenna_with_chroma,mask=mask_inv)
+        bg = cv2.bitwise_and(roi, roi, mask=mask)
+        destimg[y_offset:y_offset+h, x_offset : x_offset + w] = fg + bg
+        return destimg
+
     
 if __name__ == "__main__":
-    bg = cv2.imread("Images/ChromaKey.png", cv2.IMREAD_COLOR) 
+    manipulator = Manipulator()
     lenna = cv2.imread("Images/Lenna.png", cv2.IMREAD_COLOR) 
-    print(lenna[0][0])
-    print(bg.shape)
-    lenna = Manipulator.remove_bg(lenna, "Images/Lenna_rmbg.png")
-    # cv2.cvtColor(lenna, cv2.COLOR_BGR2RGB)
-    h, w = lenna.shape[:2]
-    
-    # cv2.cvtColor(lenna, lenna, cv2.COLOR_BGR2RGB)
-    # print(lenna.shape)
-    # mask = np.full_like(lenna,)
-    # img = cv2.seamlessClone(lenna, bg,)
-    # hsv = cv2.cvtColor(lenna, cv2.COLOR_BGR2HSV)
-    # mask = cv2.inRange(hsv, (0, 0, 0), (0, 0, 0))
-    x_offset = 50
-    y_offset = 50
-    print(bg.shape)
-    b_channel, g_channel, r_channel = cv2.split(bg)
-    alpha_channel = np.ones(b_channel.shape, dtype=b_channel.dtype)
-    bg = cv2.merge((b_channel, g_channel, r_channel, alpha_channel))
-    print(bg.shape)
-    print(lenna.shape)
-    print(lenna[0][0])
-    for i in range(h):
-        for j in range(w):
-            if lenna[i][j][3] > 15:
-                bg[y_offset+i][x_offset+j] = lenna[i][j]
-        
-    # bg[y_offset:y_offset+512, x_offset:x_offset+512] = lenna
-    
-    cv2.imshow("base", bg)
+    cv2.imshow("Remove background : 4channel png with transparency",manipulator.remove_bg(lenna, "Images/Lenna_rmbg.png"))
+    cv2.imshow("Remove background with Chroma Key Option : 3hannel",manipulator.remove_bg(lenna, "", True))
+
+
+    lenna_nobg = manipulator.remove_bg(lenna, "")
+    bg = cv2.imread("Images/windows.jpg", cv2.IMREAD_COLOR) 
+    bg = manipulator.channel_3to4(bg)
+    newimg = manipulator.combine4(bg, lenna_nobg, 200, 300)
+    cv2.imshow("Put 4channel img with Certain Offset" ,newimg)
+
+
+    lenna_with_chroma = cv2.imread("Images/Lenna_rmbg_chroma.png", cv2.IMREAD_COLOR) 
+    back = cv2.imread("Images/windows.jpg", cv2.IMREAD_COLOR) 
+    newimgwithchroma = manipulator.combine_chroma(lenna_with_chroma, back, 500, 700)
+    cv2.imshow("Put 3channel chroma img with certain offset",newimgwithchroma)
 
     cv2.waitKey(0)
