@@ -54,8 +54,8 @@ class Manipulator:
         mask = cv2.inRange(hsv, (50, 150, 0), (70, 255, 255))
         mask_inv = cv2.bitwise_not(mask)
         h, w = chromaimg.shape[:2]
-        roi = back[y_offset:y_offset+h, x_offset : x_offset + w]
-        fg = cv2.bitwise_and(lenna_with_chroma,lenna_with_chroma,mask=mask_inv)
+        roi = destimg[y_offset:y_offset+h, x_offset : x_offset + w]
+        fg = cv2.bitwise_and(chromaimg,chromaimg,mask=mask_inv)
         bg = cv2.bitwise_and(roi, roi, mask=mask)
         destimg[y_offset:y_offset+h, x_offset : x_offset + w] = fg + bg
         return destimg
@@ -64,6 +64,8 @@ class Manipulator:
 if __name__ == "__main__":
     manipulator = Manipulator()
     lenna = cv2.imread("Images/Lenna.png", cv2.IMREAD_COLOR) 
+    
+    
     cv2.imshow("Remove background : 4channel png with transparency",manipulator.remove_bg(lenna, "Images/Lenna_rmbg.png"))
     cv2.imshow("Remove background with Chroma Key Option : 3hannel",manipulator.remove_bg(lenna, "", True))
 
